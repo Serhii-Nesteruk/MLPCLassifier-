@@ -76,67 +76,66 @@ public class UI extends JFrame {
 
     }
 
+    private void clearBtnActionListener() {
+        g2.setColor(Color.WHITE);
+        g2.fillRect(0, 0, WIDTH, HEIGHT);
+        g2.setColor(Color.BLACK);
+        drawingPanel.repaint();
+    }
+
+    private void previewBtnActionListener() {
+        binaryPixels = mlpClassifier.readPixelsFromCanvas(canvas);
+        mlpClassifier.printPixelsToConsole();
+    }
+
+    private void predictBtnActionListener() {
+        float[] inputVec = mlpClassifier.getInputVector(canvas);
+        PredictionResult result = mlpClassifier.predict(inputVec);
+        String symbol = mlpClassifier.indexToSymbol(result.predictedIndex);
+
+        if (symbol == null) {
+            System.err.println("Failed to parse index to symbol");
+        }
+
+        if (result.confidence < 0.5) {
+            JOptionPane.showMessageDialog(this, "MLP can't classify this symbol: ");
+        }
+        else {
+            JOptionPane.showMessageDialog(this, "MLP думає, що це: " + symbol + " З ймовірністю " + result.confidence);
+        }
+    }
+
+    private void saveBtnActionListener() {
+        binaryPixels = mlpClassifier.readPixelsFromCanvas(canvas);
+        String label = labelField.getText().trim();
+        if (!label.isEmpty()) {
+            mlpClassifier.savePixelsToCSV(label, "dataset.csv");
+            JOptionPane.showMessageDialog(this, "Збережено з міткою [" + label + "]");
+        } else {
+            JOptionPane.showMessageDialog(this, "Будь ласка, введіть мітку!");
+        }
+    }
+
+    private void trainBtnActionListener() {
+        if (mlpClassifier.trainAndSaveMLP() != null)
+            JOptionPane.showMessageDialog(this, "MLP successfully trained");
+    }
+
     private void initButtons() {
-        clearBtn = new JButton("Очистити");
-        clearBtn.addActionListener(e -> {
-            g2.setColor(Color.WHITE);
-            g2.fillRect(0, 0, WIDTH, HEIGHT);
-            g2.setColor(Color.BLACK);
-            drawingPanel.repaint();
-        });
+        clearBtn = new JButton("Clear");
+        clearBtn.addActionListener(e -> clearBtnActionListener());
 
-        previewBtn = new JButton("Переглянути");
-        previewBtn.addActionListener(e -> {
-            binaryPixels = mlpClassifier.readPixelsFromCanvas(canvas);
-            mlpClassifier.printPixelsToConsole();
-        });
+        previewBtn = new JButton("Show in Console");
+        previewBtn.addActionListener(e -> previewBtnActionListener());
 
-        predictBtn = new JButton("Розпізнати");
-        predictBtn.addActionListener(e -> {
-            File _file = new File(mlpClassifier.pathToMLPModel);
-            if (_file.exists() && mlpModel == null) {
-                mlpModel = mlpClassifier.loadModel(mlpClassifier.pathToMLPModel);
-            }
-            else {
-                System.out.println("File not exists");
-            }
-            binaryPixels = mlpClassifier.readPixelsFromCanvas(canvas);
-            float[] inputVec = mlpClassifier.convertToFloatVector(binaryPixels);
-            PredictionResult result = mlpModel.predict(inputVec);
-            String symbol = mlpClassifier.indexToSymbol(result.predictedIndex);
+        predictBtn = new JButton("Predict");
+        predictBtn.addActionListener(e -> predictBtnActionListener());
 
-            if (symbol == null) {
-                System.err.println("Failed to parse index to symbol");
+        saveBtn = new JButton("Save");
+        saveBtn.addActionListener(e -> saveBtnActionListener());
 
-            }
-
-            if (result.confidence < 0.5) {
-                JOptionPane.showMessageDialog(this, "MLP не може розпізнати цей символ: ");
-            }
-            else {
-                JOptionPane.showMessageDialog(this, "MLP думає, що це: " + symbol + " З ймовірністю " + result.confidence);
-            }
-        });
-        saveBtn = new JButton("Зберегти у CSV");
-        saveBtn.addActionListener(e -> {
-            binaryPixels = mlpClassifier.readPixelsFromCanvas(canvas);
-            String label = labelField.getText().trim();
-            if (!label.isEmpty()) {
-                mlpClassifier.savePixelsToCSV(label, "dataset.csv");
-                JOptionPane.showMessageDialog(this, "Збережено з міткою [" + label + "]");
-            } else {
-                JOptionPane.showMessageDialog(this, "Будь ласка, введіть мітку!");
-            }
-        });
-
-        trainBtn = new JButton("Навчити MLP");
-        trainBtn.addActionListener(e -> {
-            mlpModel = mlpClassifier.trainMLPFromCSV("dataset.csv");
-            if (mlpModel != null) {
-                JOptionPane.showMessageDialog(this, "MLP навчено!");
-                mlpClassifier.saveModel(mlpModel, "mlpModel.bin");
-            }
-        });
+        trainBtn = new JButton("Train MLP");
+        trainBtn.addActionListener(e -> trainBtnActionListener());
     }
 
     private void initDrawingPanel() {

@@ -14,11 +14,33 @@ public class MLPClassifier {
     private final int GRID = 56;
     private int[][] binaryPixels = new int[GRID][GRID];
     public final String pathToMLPModel = "mlpModel.bin";
+    public final String pathToDataset = "dataset.csv";
 
     private MLP mlpModel;
 
     public MLPClassifier() {
         mlpModel = loadModel(pathToMLPModel);
+    }
+
+    public PredictionResult predict(float[] inputVec) {
+        return mlpModel.predict(inputVec);
+    }
+
+    public MLP trainAndSaveMLP() {
+        MLP mlp = trainMLPFromCSV();
+        if (mlp != null) {
+            mlpModel = mlp;
+            saveModel(mlpModel, pathToMLPModel);
+            return mlpModel;
+        }
+        else {
+            return null;
+        }
+    }
+
+    public float[] getInputVector(BufferedImage canvas) {
+        binaryPixels = readPixelsFromCanvas(canvas);
+        return convertToFloatVector(binaryPixels);
     }
 
     public void saveModel(MLP mlp, String filename) {
@@ -91,12 +113,12 @@ public class MLPClassifier {
         }
     }
 
-    public MLPDataset parseMLPDatasetFromCSV(String csvFile) {
+    public MLPDataset parseMLPDatasetFromCSV() {
         List<float[]> inputList = new ArrayList<>();
         List<float[]> targetList = new ArrayList<>();
 
 
-        try (BufferedReader br = new BufferedReader(new FileReader(csvFile))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(pathToDataset))) {
             String line;
             while ((line = br.readLine()) != null) {
 
@@ -126,11 +148,11 @@ public class MLPClassifier {
         }
     }
 
-    public MLP trainMLPFromCSV(String csvFile) {
-        MLPDataset mlpDataset = parseMLPDatasetFromCSV(csvFile);
+    public MLP trainMLPFromCSV() {
+        MLPDataset mlpDataset = parseMLPDatasetFromCSV();
 
         if (mlpDataset == null) {
-            System.err.println("Failed to parse MLP Dataset from file " + csvFile);
+            System.err.println("Failed to parse MLP Dataset from file " + pathToMLPModel);
             return null;
         }
 
