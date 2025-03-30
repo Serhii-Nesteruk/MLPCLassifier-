@@ -5,10 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="15a9945e-2d5d-41b5-887a-1bdcb8b42a58" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/MLPDataset.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/UI.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/AllInOneApp.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/MLPClassifier.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/MLP.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/MLP.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/MLPClassifier.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/MLPClassifier.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/example/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/Main.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -78,5 +77,16 @@
       <updated>1743330241722</updated>
     </task>
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
 </project>
