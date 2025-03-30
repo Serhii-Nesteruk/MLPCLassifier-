@@ -4,10 +4,6 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Random;
 
-/**
- * Проста модель MLP з одним прихованим шаром.
- * Тепер implements Serializable, щоб можна було зберігати/читати з файлу.
- */
 public class MLP implements Serializable {
 
     private static final long serialVersionUID = 1L; // Рекомендовано для Serializable
@@ -16,14 +12,12 @@ public class MLP implements Serializable {
     private int hiddenSize;
     private int outputSize;
 
-    // Ваги
     private float[][] w1;
     private float[] b1;
     private float[][] w2;
     private float[] b2;
 
     private transient Random rnd = new Random();
-    // (transient — не серіалізується, бо генератор випадкових чисел не потрібен з файлу)
 
     public MLP(int inputSize, int hiddenSize, int outputSize) {
         this.inputSize = inputSize;
@@ -42,13 +36,11 @@ public class MLP implements Serializable {
     private void initWeights(float[][] matrix) {
         for (int i = 0; i < matrix.length; i++) {
             for (int j = 0; j < matrix[0].length; j++) {
-                // Приклад ініціалізації в діапазоні [-0.1..0.1]
                 matrix[i][j] = (rnd.nextFloat() - 0.5f) * 0.2f;
             }
         }
     }
 
-    // Тренування на багатьох прикладах
     public void train(float[][] inputs, float[][] targets, int epochs, float lr) {
         int n = inputs.length;
         for (int epoch = 0; epoch < epochs; epoch++) {
@@ -61,7 +53,6 @@ public class MLP implements Serializable {
         }
     }
 
-    // Тренування на одному прикладі
     private float trainOnExample(float[] input, float[] target, float lr) {
         // ---------- Forward -----------
         float[] hiddenRaw = new float[hiddenSize];
@@ -122,7 +113,7 @@ public class MLP implements Serializable {
 
         for (int j = 0; j < hiddenSize; j++) {
             if (hiddenRaw[j] <= 0) {
-                dHidden[j] = 0; // ReLU похідна
+                dHidden[j] = 0;
             }
         }
 

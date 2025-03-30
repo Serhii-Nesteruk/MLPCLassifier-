@@ -8,59 +8,85 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AllInOneApp extends JFrame {
+public class MLPClassifier extends JFrame {
 
     private final int WIDTH = 500, HEIGHT = 500;
     private final int GRID = 56;
     private BufferedImage canvas;
     private Graphics2D g2;
     private int[][] binaryPixels = new int[GRID][GRID];
-
-    // Поле введення мітки
+    private DrawingPanel drawingPanel;
+    private final String pathToMLPModel = "mlpModel.bin";
+    private JButton clearBtn, previewBtn, predictBtn, saveBtn, trainBtn;
+    private JPanel rowPanel1, rowPanel2, buttonPanel;
     private JTextField labelField;
 
-    // Змінна для MLP-моделі (якщо/коли натиснемо «Навчити»)
     private MLP mlpModel;
 
-    public AllInOneApp() {
+    public MLPClassifier() {
         setTitle("Усе-в-одному: Малювання, CSV, Тренування, Розпізнавання (2 ряди кнопок)");
         setSize(WIDTH, HEIGHT);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
 
-        // 1. Ініціалізація полотна
-        canvas = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_BYTE_GRAY);
-        g2 = canvas.createGraphics();
-        g2.setColor(Color.WHITE);
-        g2.fillRect(0, 0, WIDTH, HEIGHT);
-        g2.setColor(Color.BLACK);
+        labelField = new JTextField(3);
+        labelField.setToolTipText("Введіть цифру (0..9) чи літеру (A..Z)");
 
-        // 2. Панель малювання
-        DrawingPanel drawingPanel = new DrawingPanel();
-        add(drawingPanel, BorderLayout.CENTER);
+        initComponents();
 
-        String pathToModel = "mlpModel.bin";
-        File file = new File(pathToModel);
+        setVisible(true);
+    }
+
+    private void initComponents() {
+        loadMLPModel();
+        initButtons();
+        initPanels();
+    }
+
+    private void initPanels() {
+        initDrawingPanel();
+        initRowPanel();
+        initButtonPanel();
+    }
+
+    private void loadMLPModel() {
+        File file = new File(pathToMLPModel);
         if (file.exists()) {
-            mlpModel = loadModel(pathToModel);
+            mlpModel = loadModel(pathToMLPModel);
         }
         else {
-            System.out.println("File not exists");
+            System.err.println("File not exists");
         }
 
-        // -------------------------
-        // 3. Створюємо панель для кнопок (BoxLayout по Y)
-        // -------------------------
-        JPanel buttonPanel = new JPanel();
+    }
+
+    private void initRowPanel() {
+        rowPanel1 = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        rowPanel2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+
+        rowPanel1.add(clearBtn);
+        rowPanel1.add(previewBtn);
+        rowPanel1.add(predictBtn);
+
+        rowPanel2.add(new JLabel("Мітка:"));
+        rowPanel2.add(labelField);
+        rowPanel2.add(saveBtn);
+        rowPanel2.add(trainBtn);
+    }
+
+    private void initButtonPanel() {
+        buttonPanel = new JPanel();
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
 
-        // (a) Створюємо перший "ряд" кнопок
-        JPanel rowPanel1 = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
-        // (b) Створюємо другий "ряд" кнопок
-        JPanel rowPanel2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        buttonPanel.add(rowPanel1);
+        buttonPanel.add(rowPanel2);
 
-        // 4. Створюємо кнопки
-        JButton clearBtn = new JButton("Очистити");
+        add(buttonPanel, BorderLayout.SOUTH);
+
+    }
+
+    private void initButtons() {
+        clearBtn = new JButton("Очистити");
         clearBtn.addActionListener(e -> {
             g2.setColor(Color.WHITE);
             g2.fillRect(0, 0, WIDTH, HEIGHT);
@@ -68,19 +94,17 @@ public class AllInOneApp extends JFrame {
             drawingPanel.repaint();
         });
 
-        JButton previewBtn = new JButton("Переглянути");
+        previewBtn = new JButton("Переглянути");
         previewBtn.addActionListener(e -> {
             readPixelsFromCanvas();
             printPixelsToConsole();
         });
 
-        JButton predictBtn = new JButton("Розпізнати");
+        predictBtn = new JButton("Розпізнати");
         predictBtn.addActionListener(e -> {
-
-            String _pathToModel = "mlpModel.bin";
-            File _file = new File(pathToModel);
-            if (file.exists()) {
-                mlpModel = loadModel(pathToModel);
+            File _file = new File(pathToMLPModel);
+            if (_file.exists() && mlpModel == null) {
+                mlpModel = loadModel(pathToMLPModel);
             }
             else {
                 System.out.println("File not exists");
@@ -90,6 +114,11 @@ public class AllInOneApp extends JFrame {
             PredictionResult result = mlpModel.predict(inputVec);
             String symbol = indexToSymbol(result.predictedIndex);
 
+            if (symbol == null) {
+                System.err.println("Failed to parse index to symbol");
+
+            }
+
             if (result.confidence < 0.5) {
                 JOptionPane.showMessageDialog(this, "MLP не може розпізнати цей символ: ");
             }
@@ -97,11 +126,7 @@ public class AllInOneApp extends JFrame {
                 JOptionPane.showMessageDialog(this, "MLP думає, що це: " + symbol + " З ймовірністю " + result.confidence);
             }
         });
-
-        labelField = new JTextField(3);
-        labelField.setToolTipText("Введіть цифру (0..9) чи літеру (A..Z)");
-
-        JButton saveBtn = new JButton("Зберегти у CSV");
+        saveBtn = new JButton("Зберегти у CSV");
         saveBtn.addActionListener(e -> {
             readPixelsFromCanvas();
             String label = labelField.getText().trim();
@@ -113,7 +138,7 @@ public class AllInOneApp extends JFrame {
             }
         });
 
-        JButton trainBtn = new JButton("Навчити MLP");
+        trainBtn = new JButton("Навчити MLP");
         trainBtn.addActionListener(e -> {
             mlpModel = trainMLPFromCSV("dataset.csv");
             if (mlpModel != null) {
@@ -121,32 +146,19 @@ public class AllInOneApp extends JFrame {
                 saveModel(mlpModel, "mlpModel.bin");
             }
         });
-
-        // 5. Розподіляємо кнопки у два "ряди"
-        // Приклад: у перший ряд винесемо три кнопки
-        rowPanel1.add(clearBtn);
-        rowPanel1.add(previewBtn);
-        rowPanel1.add(predictBtn);
-
-        // У другий ряд - мітка, поле, "Зберегти", "Навчити"
-        rowPanel2.add(new JLabel("Мітка:"));
-        rowPanel2.add(labelField);
-        rowPanel2.add(saveBtn);
-        rowPanel2.add(trainBtn);
-
-        // 6. Додаємо обидва рядки до buttonPanel
-        buttonPanel.add(rowPanel1);
-        buttonPanel.add(rowPanel2);
-
-        // 7. Додаємо buttonPanel в низ (SOUTH)
-        add(buttonPanel, BorderLayout.SOUTH);
-
-        setVisible(true);
     }
 
-    // ---------------------------
-    // Панель малювання
-    // ---------------------------
+    private void initDrawingPanel() {
+        canvas = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_BYTE_GRAY);
+        g2 = canvas.createGraphics();
+        g2.setColor(Color.WHITE);
+        g2.fillRect(0, 0, WIDTH, HEIGHT);
+        g2.setColor(Color.BLACK);
+
+        drawingPanel = new DrawingPanel();
+        add(drawingPanel, BorderLayout.CENTER);
+    }
+
     class DrawingPanel extends JPanel {
         public DrawingPanel() {
             setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -235,15 +247,15 @@ public class AllInOneApp extends JFrame {
         }
     }
 
-    // 4. Навчити MLP на основі CSV
-// 4. Навчити MLP на основі CSV (3 класи)
-    private MLP trainMLPFromCSV(String csvFile) {
+    public MLPDataset parseMLPDatasetFromCSV(String csvFile) {
         List<float[]> inputList = new ArrayList<>();
         List<float[]> targetList = new ArrayList<>();
+
+
         try (BufferedReader br = new BufferedReader(new FileReader(csvFile))) {
             String line;
             while ((line = br.readLine()) != null) {
-                // Формат: label, p0, p1, ... p3135 (56x56)
+
                 String[] parts = line.split(",");
                 if (parts.length != 1 + (GRID * GRID)) {
                     continue;
@@ -254,7 +266,7 @@ public class AllInOneApp extends JFrame {
                     inVec[i] = Float.parseFloat(parts[i + 1]);
                 }
                 int classIndex = symbolToIndex(labelStr);
-                // Якщо classIndex не належить [0,2], пропускаємо цей приклад
+
                 if (classIndex < 0 || classIndex >= 3) {
                     continue;
                 }
@@ -263,44 +275,51 @@ public class AllInOneApp extends JFrame {
                 inputList.add(inVec);
                 targetList.add(targetVec);
             }
+            return new MLPDataset(inputList, targetList);
         } catch (IOException e) {
             e.printStackTrace();
             return null;
         }
+    }
 
-        if (inputList.isEmpty()) {
-            System.err.println("Немає даних для тренування!");
+    private MLP trainMLPFromCSV(String csvFile) {
+        MLPDataset mlpDataset = parseMLPDatasetFromCSV(csvFile);
+
+        if (mlpDataset == null) {
+            System.err.println("Failed to parse MLP Dataset from file " + csvFile);
             return null;
         }
 
-        float[][] inputs = inputList.toArray(new float[0][]);
-        float[][] targets = targetList.toArray(new float[0][]);
+        if (mlpDataset.inputList.isEmpty()) {
+            System.err.println("Input List is empty");
+            return null;
+        }
 
-        // Створюємо та тренуємо MLP (3136->256->3)
+        float[][] inputs = mlpDataset.inputList.toArray(new float[0][]);
+        float[][] targets = mlpDataset.targetList.toArray(new float[0][]);
+
         MLP mlp = new MLP(GRID * GRID, 256, 3);
         mlp.train(inputs, targets, 600, 0.0001f);
         return mlp;
     }
 
-    // 5. Допоміжні методи
-    // (symbol -> index, index -> symbol, перетворення пікселів у float[])
     private int symbolToIndex(String s) {
         s = s.trim().toLowerCase();
-        if (s.equals("a")) {
-            return 0;
-        } else if (s.equals("4")) {
-            return 1;
-        } else if (s.equals("f")) {
-            return 2;
-        }
-        return -1; // Недопустима мітка
+        return switch (s) {
+            case "a" -> 0;
+            case "4" -> 1;
+            case "f" -> 2;
+            default -> -1;
+        };
     }
 
     private String indexToSymbol(int idx) {
-        if (idx == 0) return "a";
-        if (idx == 1) return "4";
-        if (idx == 2) return "f";
-        return "?";
+        return switch(idx) {
+            case 0 -> "a";
+            case 1 -> "4";
+            case 2 -> "f";
+            default -> null;
+        };
     }
     private float[] convertToFloatVector(int[][] arr) {
         float[] vec = new float[GRID*GRID];
@@ -317,7 +336,7 @@ public class AllInOneApp extends JFrame {
     // Точка входу
     // ---------------------------
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(AllInOneApp::new);
+        SwingUtilities.invokeLater(MLPClassifier::new);
     }
 }
 
