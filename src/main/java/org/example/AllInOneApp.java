@@ -11,7 +11,7 @@ import java.util.List;
 public class AllInOneApp extends JFrame {
 
     private final int WIDTH = 500, HEIGHT = 500;
-    private final int GRID = 28;
+    private final int GRID = 56;
     private BufferedImage canvas;
     private Graphics2D g2;
     private int[][] binaryPixels = new int[GRID][GRID];
@@ -38,6 +38,15 @@ public class AllInOneApp extends JFrame {
         // 2. Панель малювання
         DrawingPanel drawingPanel = new DrawingPanel();
         add(drawingPanel, BorderLayout.CENTER);
+
+        String pathToModel = "mlpModel.bin";
+        File file = new File(pathToModel);
+        if (file.exists()) {
+            mlpModel = loadModel(pathToModel);
+        }
+        else {
+            System.out.println("File not exists");
+        }
 
         // -------------------------
         // 3. Створюємо панель для кнопок (BoxLayout по Y)
@@ -67,15 +76,26 @@ public class AllInOneApp extends JFrame {
 
         JButton predictBtn = new JButton("Розпізнати");
         predictBtn.addActionListener(e -> {
-            if (mlpModel == null) {
-                JOptionPane.showMessageDialog(this, "Модель не навчена!");
-                return;
+
+            String _pathToModel = "mlpModel.bin";
+            File _file = new File(pathToModel);
+            if (file.exists()) {
+                mlpModel = loadModel(pathToModel);
+            }
+            else {
+                System.out.println("File not exists");
             }
             readPixelsFromCanvas();
             float[] inputVec = convertToFloatVector(binaryPixels);
-            int predictedIndex = mlpModel.predict(inputVec);
-            String symbol = indexToSymbol(predictedIndex);
-            JOptionPane.showMessageDialog(this, "MLP думає, що це: " + symbol);
+            PredictionResult result = mlpModel.predict(inputVec);
+            String symbol = indexToSymbol(result.predictedIndex);
+
+            if (result.confidence < 0.5) {
+                JOptionPane.showMessageDialog(this, "MLP не може розпізнати цей символ: ");
+            }
+            else {
+                JOptionPane.showMessageDialog(this, "MLP думає, що це: " + symbol + " З ймовірністю " + result.confidence);
+            }
         });
 
         labelField = new JTextField(3);
@@ -98,6 +118,7 @@ public class AllInOneApp extends JFrame {
             mlpModel = trainMLPFromCSV("dataset.csv");
             if (mlpModel != null) {
                 JOptionPane.showMessageDialog(this, "MLP навчено!");
+                saveModel(mlpModel, "mlpModel.bin");
             }
         });
 
@@ -143,9 +164,15 @@ public class AllInOneApp extends JFrame {
         }
     }
 
-    // ---------------------------
-    // 1. Зчитуємо 28x28 із canvas
-    // ---------------------------
+    private void saveModel(MLP mlp, String filename) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(filename))) {
+            oos.writeObject(mlp);
+            System.out.println("Модель успішно збережена!");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void readPixelsFromCanvas() {
         int cellSize = WIDTH / GRID;
         for (int y = 0; y < GRID; y++) {
@@ -165,6 +192,17 @@ public class AllInOneApp extends JFrame {
                 binaryPixels[y][x] = (ratio > 0.2) ? 1 : 0;
             }
         }
+    }
+
+    private MLP loadModel(String filename) {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(filename))) {
+            MLP mlp = (MLP) ois.readObject();
+            System.out.println("Модель успішно завантажена!");
+            return mlp;
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     // 2. Показати 28x28 у консолі
@@ -198,29 +236,30 @@ public class AllInOneApp extends JFrame {
     }
 
     // 4. Навчити MLP на основі CSV
+// 4. Навчити MLP на основі CSV (3 класи)
     private MLP trainMLPFromCSV(String csvFile) {
         List<float[]> inputList = new ArrayList<>();
         List<float[]> targetList = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(csvFile))) {
             String line;
             while ((line = br.readLine()) != null) {
-                // label, p0, p1, ... p783
+                // Формат: label, p0, p1, ... p3135 (56x56)
                 String[] parts = line.split(",");
-                if (parts.length != 1 + (GRID*GRID)) {
+                if (parts.length != 1 + (GRID * GRID)) {
                     continue;
                 }
-                String labelStr = parts[0];
-                float[] inVec = new float[GRID*GRID];
-                for (int i = 0; i < GRID*GRID; i++) {
-                    inVec[i] = Float.parseFloat(parts[i+1]);
+                String labelStr = parts[0].trim();
+                float[] inVec = new float[GRID * GRID];
+                for (int i = 0; i < GRID * GRID; i++) {
+                    inVec[i] = Float.parseFloat(parts[i + 1]);
                 }
                 int classIndex = symbolToIndex(labelStr);
-                if (classIndex < 0 || classIndex > 35) {
+                // Якщо classIndex не належить [0,2], пропускаємо цей приклад
+                if (classIndex < 0 || classIndex >= 3) {
                     continue;
                 }
-                float[] targetVec = new float[36];
+                float[] targetVec = new float[3];
                 targetVec[classIndex] = 1.0f;
-
                 inputList.add(inVec);
                 targetList.add(targetVec);
             }
@@ -237,37 +276,32 @@ public class AllInOneApp extends JFrame {
         float[][] inputs = inputList.toArray(new float[0][]);
         float[][] targets = targetList.toArray(new float[0][]);
 
-        // Створюємо та тренуємо MLP (784->64->36)
-        MLP mlp = new MLP(784, 64, 36);
-        mlp.train(inputs, targets, 20, 0.01f);
+        // Створюємо та тренуємо MLP (3136->256->3)
+        MLP mlp = new MLP(GRID * GRID, 256, 3);
+        mlp.train(inputs, targets, 600, 0.0001f);
         return mlp;
     }
 
     // 5. Допоміжні методи
     // (symbol -> index, index -> symbol, перетворення пікселів у float[])
     private int symbolToIndex(String s) {
-        // Якщо одна цифра (0..9)
-        if (s.matches("\\d")) {
-            return Integer.parseInt(s);
+        s = s.trim().toLowerCase();
+        if (s.equals("a")) {
+            return 0;
+        } else if (s.equals("4")) {
+            return 1;
+        } else if (s.equals("f")) {
+            return 2;
         }
-        // Якщо літера (a..z або A..Z)
-        s = s.toUpperCase();
-        if (s.matches("[A-Z]")) {
-            return 10 + (s.charAt(0) - 'A');
-        }
-        return -1;
+        return -1; // Недопустима мітка
     }
 
     private String indexToSymbol(int idx) {
-        if (idx >= 0 && idx <= 9) {
-            return String.valueOf(idx);
-        } else if (idx >= 10 && idx < 36) {
-            char c = (char)('A' + (idx - 10));
-            return String.valueOf(c);
-        }
+        if (idx == 0) return "a";
+        if (idx == 1) return "4";
+        if (idx == 2) return "f";
         return "?";
     }
-
     private float[] convertToFloatVector(int[][] arr) {
         float[] vec = new float[GRID*GRID];
         int index = 0;

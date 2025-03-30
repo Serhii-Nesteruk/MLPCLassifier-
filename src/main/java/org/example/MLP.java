@@ -1,6 +1,7 @@
 package org.example;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Random;
 
 /**
@@ -136,7 +137,7 @@ public class MLP implements Serializable {
         return loss;
     }
 
-    public int predict(float[] input) {
+    public PredictionResult predict(float[] input) {
         // Forward
         float[] hidden = new float[hiddenSize];
         for (int j = 0; j < hiddenSize; j++) {
@@ -179,11 +180,11 @@ public class MLP implements Serializable {
                 bestIndex = k;
             }
         }
-        return bestIndex;
+        return new PredictionResult(bestIndex, bestVal);
     }
 
     private float relu(float x) {
-        return (x > 0) ? x : 0;
+        return (x > 0) ? x : 0.01f * x;
     }
 }
 
