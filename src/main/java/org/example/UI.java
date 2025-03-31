@@ -5,7 +5,6 @@ import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.image.BufferedImage;
-import java.io.File;
 
 public class UI extends JFrame {
 
@@ -73,7 +72,6 @@ public class UI extends JFrame {
         buttonPanel.add(rowPanel2);
 
         add(buttonPanel, BorderLayout.SOUTH);
-
     }
 
     private void clearBtnActionListener() {

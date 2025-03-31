@@ -77,7 +77,7 @@ public class MLPClassifier {
     public MLP loadModel(String filename) {
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(filename))) {
             MLP mlp = (MLP) ois.readObject();
-            System.out.println("Модель успішно завантажена!");
+            System.out.println("MLP Model successfully downloaded");
             return mlp;
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
@@ -196,13 +196,6 @@ public class MLPClassifier {
             }
         }
         return vec;
-    }
-
-    // ---------------------------
-    // Точка входу
-    // ---------------------------
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(MLPClassifier::new);
     }
 }
 

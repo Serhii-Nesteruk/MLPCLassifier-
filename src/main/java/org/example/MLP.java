@@ -8,9 +8,9 @@ public class MLP implements Serializable {
 
     private static final long serialVersionUID = 1L; // Рекомендовано для Serializable
 
-    private int inputSize;
-    private int hiddenSize;
-    private int outputSize;
+    private final int inputSize;
+    private final int hiddenSize;
+    private final int outputSize;
 
     private float[][] w1;
     private float[] b1;
@@ -53,24 +53,25 @@ public class MLP implements Serializable {
         }
     }
 
-    private float trainOnExample(float[] input, float[] target, float lr) {
-        // ---------- Forward -----------
-        float[] hiddenRaw = new float[hiddenSize];
-        float[] hidden = new float[hiddenSize];
-        for (int j = 0; j < hiddenSize; j++) {
-            float sum = b1[j];
-            for (int i = 0; i < inputSize; i++) {
-                sum += input[i] * w1[i][j];
-            }
-            hiddenRaw[j] = sum;
-            hidden[j] = relu(sum);
+    private float[] calculateSoftmax(float[] outputRaw, float maxLogit) {
+        float[] output = new float[outputSize];
+        float sumExp = 0f;
+        for (int k = 0; k < output.length; k++) {
+            output[k] = (float) Math.exp(outputRaw[k] - maxLogit);
+            sumExp += output[k];
         }
+        for (int k = 0; k < output.length; k++) {
+            output[k] /= sumExp;
+        }
+        return output;
+    }
 
+    private float findMaxLogit(float[] hidden) {
         float[] outputRaw = new float[outputSize];
         float maxLogit = Float.NEGATIVE_INFINITY;
-        for (int k = 0; k < outputSize; k++) {
+        for (int k = 0; k < outputRaw.length; k++) {
             float sum = b2[k];
-            for (int j = 0; j < hiddenSize; j++) {
+            for (int j = 0; j < hidden.length; j++) {
                 sum += hidden[j] * w2[j][k];
             }
             outputRaw[k] = sum;
@@ -79,38 +80,35 @@ public class MLP implements Serializable {
             }
         }
 
-        float[] output = new float[outputSize];
-        float sumExp = 0f;
-        for (int k = 0; k < outputSize; k++) {
-            output[k] = (float) Math.exp(outputRaw[k] - maxLogit);
-            sumExp += output[k];
-        }
-        for (int k = 0; k < outputSize; k++) {
-            output[k] /= sumExp;
-        }
+        return maxLogit;
+    }
 
-        // Cross-entropy
+    private float calculateLoss(float[] output, float[] target) {
         float loss = 0f;
         for (int k = 0; k < outputSize; k++) {
-            loss -= target[k] * Math.log(output[k] + 1e-7f);
+            loss -= (float) (target[k] * Math.log(output[k] + 1e-7f));
         }
+        return loss;
+    }
 
-        // ---------- Backward -----------
+    private float[] calculateErrors(float[] output, float[] target) {
         float[] dOutput = new float[outputSize];
         for (int k = 0; k < outputSize; k++) {
             dOutput[k] = output[k] - target[k];
         }
+        return dOutput;
+    }
 
-        float[] dHidden = new float[hiddenSize];
-        for (int k = 0; k < outputSize; k++) {
+    private void backward(float[] hidden, float[] dOutput, float[]hiddenRaw, float[] input, float lr) {
+        float[] dHidden = new float[hidden.length];
+        for (int k = 0; k < dOutput.length; k++) {
             float grad = dOutput[k];
-            for (int j = 0; j < hiddenSize; j++) {
+            for (int j = 0; j < hidden.length; j++) {
                 w2[j][k] -= lr * grad * hidden[j];
                 dHidden[j] += grad * w2[j][k];
             }
             b2[k] -= lr * grad;
         }
-
         for (int j = 0; j < hiddenSize; j++) {
             if (hiddenRaw[j] <= 0) {
                 dHidden[j] = 0;
@@ -124,6 +122,28 @@ public class MLP implements Serializable {
             }
             b1[j] -= lr * grad;
         }
+    }
+
+    private float trainOnExample(float[] input, float[] target, float lr) {
+        // ---------- Forward -----------
+        float[] hiddenRaw = new float[hiddenSize];
+        float[] hidden = new float[hiddenSize];
+        for (int j = 0; j < hiddenSize; j++) {
+            float sum = b1[j];
+            for (int i = 0; i < inputSize; i++) {
+                sum += input[i] * w1[i][j];
+            }
+            hiddenRaw[j] = sum;
+            hidden[j] = relu(sum);
+        }
+
+        float maxLogit = findMaxLogit(hidden);
+        float[] output = calculateSoftmax(hiddenRaw, maxLogit);
+        float loss = calculateLoss(output, target);
+
+        float[] dOutput = calculateErrors(output, target);
+
+        backward(hidden, dOutput, hiddenRaw, input, lr);
 
         return loss;
     }
