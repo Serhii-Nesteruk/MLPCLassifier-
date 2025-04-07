@@ -5,6 +5,8 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +26,42 @@ public class MLPClassifier {
 
     public PredictionResult predict(float[] inputVec) {
         return mlpModel.predict(inputVec);
+    }
+
+    public MLPDataset loadTestSample() {
+        List<float[]> inputList = new ArrayList<>();
+        List<float[]> targetList = new ArrayList<>();
+
+        try {
+
+            List<String> allLines = Files.readAllLines(Paths.get(pathToDataset));
+            int totalLines = allLines.size();
+
+            for (int i = totalLines - 100; i < totalLines; i++) {
+                String line = allLines.get(i);
+                String[] parts = line.split(",");
+                if (parts.length != 1 + (GRID * GRID)) {
+                    continue;
+                }
+                String labelStr = parts[0].trim();
+                float[] inVec = new float[GRID * GRID];
+                for (int j = 0; j < GRID * GRID; j++) {
+                    inVec[j] = Float.parseFloat(parts[j + 1]);
+                }
+                int classIndex = symbolToIndex(labelStr);
+                if (classIndex < 0 || classIndex >= 3) {
+                    continue;
+                }
+                float[] targetVec = new float[3];
+                targetVec[classIndex] = 1.0f;
+                inputList.add(inVec);
+                targetList.add(targetVec);
+            }
+            return new MLPDataset(inputList, targetList);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public MLP trainAndSaveMLP() {
@@ -46,7 +84,7 @@ public class MLPClassifier {
     public void saveModel(MLP mlp, String filename) {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(filename))) {
             oos.writeObject(mlp);
-            System.out.println("Модель успішно збережена!");
+            System.out.println("Model successfully saved!");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -112,8 +150,42 @@ public class MLPClassifier {
             e.printStackTrace();
         }
     }
-
     public MLPDataset parseMLPDatasetFromCSV() {
+        List<float[]> inputList = new ArrayList<>();
+        List<float[]> targetList = new ArrayList<>();
+
+        try {
+
+            List<String> allLines = Files.readAllLines(Paths.get(pathToDataset));
+            int totalLines = allLines.size();
+
+            for (int i = 0; i < totalLines - 100; i++) {
+                String line = allLines.get(i);
+                String[] parts = line.split(",");
+                if (parts.length != 1 + (GRID * GRID)) {
+                    continue;
+                }
+                String labelStr = parts[0].trim();
+                float[] inVec = new float[GRID * GRID];
+                for (int j = 0; j < GRID * GRID; j++) {
+                    inVec[j] = Float.parseFloat(parts[j + 1]);
+                }
+                int classIndex = symbolToIndex(labelStr);
+                if (classIndex < 0 || classIndex >= 3) {
+                    continue;
+                }
+                float[] targetVec = new float[3];
+                targetVec[classIndex] = 1.0f;
+                inputList.add(inVec);
+                targetList.add(targetVec);
+            }
+            return new MLPDataset(inputList, targetList);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+   /* public MLPDataset parseMLPDatasetFromCSV() {
         List<float[]> inputList = new ArrayList<>();
         List<float[]> targetList = new ArrayList<>();
 
@@ -146,7 +218,7 @@ public class MLPClassifier {
             e.printStackTrace();
             return null;
         }
-    }
+    }*/
 
     public MLP trainMLPFromCSV() {
         MLPDataset mlpDataset = parseMLPDatasetFromCSV();
@@ -165,11 +237,11 @@ public class MLPClassifier {
         float[][] targets = mlpDataset.targetList.toArray(new float[0][]);
 
         MLP mlp = new MLP(GRID * GRID, 256, 3);
-        mlp.train(inputs, targets, 600, 0.0001f);
+        mlp.train(inputs, targets, 1000, 0.001f);
         return mlp;
     }
 
-    private int symbolToIndex(String s) {
+    public int symbolToIndex(String s) {
         s = s.trim().toLowerCase();
         return switch (s) {
             case "a" -> 0;

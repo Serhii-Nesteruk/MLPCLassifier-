@@ -12,7 +12,7 @@ public class UI extends JFrame {
     private final int GRID = 56;
     private BufferedImage canvas;
     private Graphics2D g2;
-    private JButton clearBtn, previewBtn, predictBtn, saveBtn, trainBtn;
+    private JButton clearBtn, previewBtn, predictBtn, saveBtn, trainBtn, testBtn;
     private JPanel rowPanel1, rowPanel2, buttonPanel;
     private JTextField labelField;
     private DrawingPanel drawingPanel;
@@ -33,7 +33,7 @@ public class UI extends JFrame {
         mlpModel = mlpClassifier.loadModel(mlpClassifier.pathToMLPModel);
 
         labelField = new JTextField(3);
-        labelField.setToolTipText("Введіть цифру (0..9) чи літеру (A..Z)");
+        labelField.setToolTipText("Enter a number (0..9) or a letter (A..Z)");
 
         initComponents();
 
@@ -58,10 +58,11 @@ public class UI extends JFrame {
         rowPanel1.add(previewBtn);
         rowPanel1.add(predictBtn);
 
-        rowPanel2.add(new JLabel("Мітка:"));
+        rowPanel2.add(new JLabel("Tag:"));
         rowPanel2.add(labelField);
         rowPanel2.add(saveBtn);
         rowPanel2.add(trainBtn);
+        rowPanel2.add(testBtn);
     }
 
     private void initButtonPanel() {
@@ -95,11 +96,11 @@ public class UI extends JFrame {
             System.err.println("Failed to parse index to symbol");
         }
 
-        if (result.confidence < 0.5) {
+        if (result.confidence < 0.75) {
             JOptionPane.showMessageDialog(this, "MLP can't classify this symbol: ");
         }
         else {
-            JOptionPane.showMessageDialog(this, "MLP думає, що це: " + symbol + " З ймовірністю " + result.confidence);
+            JOptionPane.showMessageDialog(this, "MLP thinks it is: " + symbol + " With probability" + result.confidence);
         }
     }
 
@@ -108,15 +109,41 @@ public class UI extends JFrame {
         String label = labelField.getText().trim();
         if (!label.isEmpty()) {
             mlpClassifier.savePixelsToCSV(label, "dataset.csv");
-            JOptionPane.showMessageDialog(this, "Збережено з міткою [" + label + "]");
+            JOptionPane.showMessageDialog(this, "Saved with tag [" + label + "]");
         } else {
-            JOptionPane.showMessageDialog(this, "Будь ласка, введіть мітку!");
+            JOptionPane.showMessageDialog(this, "Please enter a tag!");
         }
     }
 
     private void trainBtnActionListener() {
         if (mlpClassifier.trainAndSaveMLP() != null)
             JOptionPane.showMessageDialog(this, "MLP successfully trained");
+    }
+
+    public void testBtnActionListener() {
+        int countOfGoodAnswers = 0;
+
+        MLPDataset mlpDataset = mlpClassifier.loadTestSample();
+        float[][] inputs = mlpDataset.inputList.toArray(new float[0][]);
+        float[][] targets = mlpDataset.targetList.toArray(new float[0][]);
+
+        for (int i = 0; i < inputs.length; i++) {
+            PredictionResult result = mlpClassifier.predict(inputs[i]);
+            int predictedIndex = result.predictedIndex;
+
+            int trueIndex = -1;
+            for (int j = 0; j < targets[i].length; j++) {
+                if (targets[i][j] == 1.0f) {
+                    trueIndex = j;
+                    break;
+                }
+            }
+
+            if (predictedIndex == trueIndex) {
+                countOfGoodAnswers++;
+            }
+        }
+        System.out.println("Number of correct answers: " + countOfGoodAnswers + "/" + inputs.length);
     }
 
     private void initButtons() {
@@ -134,6 +161,9 @@ public class UI extends JFrame {
 
         trainBtn = new JButton("Train MLP");
         trainBtn.addActionListener(e -> trainBtnActionListener());
+
+        testBtn = new JButton("Test");
+        testBtn.addActionListener(e -> testBtnActionListener());
     }
 
     private void initDrawingPanel() {

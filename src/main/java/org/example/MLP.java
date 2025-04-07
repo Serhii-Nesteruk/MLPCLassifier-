@@ -12,6 +12,12 @@ public class MLP implements Serializable {
     private final int hiddenSize;
     private final int outputSize;
 
+    private float[] outputRaw;
+    private float[] dropoutMask;
+    private float[] hidden;
+
+    private float dropoutRate = 0.5f;
+
     private float[][] w1;
     private float[] b1;
     private float[][] w2;
@@ -23,6 +29,10 @@ public class MLP implements Serializable {
         this.inputSize = inputSize;
         this.hiddenSize = hiddenSize;
         this.outputSize = outputSize;
+
+        outputRaw = new float[outputSize];
+        dropoutMask = new float[hiddenSize];
+        hidden = new float[hiddenSize];
 
         w1 = new float[inputSize][hiddenSize];
         b1 = new float[hiddenSize];
@@ -67,7 +77,6 @@ public class MLP implements Serializable {
     }
 
     private float findMaxLogit(float[] hidden) {
-        float[] outputRaw = new float[outputSize];
         float maxLogit = Float.NEGATIVE_INFINITY;
         for (int k = 0; k < outputRaw.length; k++) {
             float sum = b2[k];
@@ -113,6 +122,7 @@ public class MLP implements Serializable {
             if (hiddenRaw[j] <= 0) {
                 dHidden[j] = 0;
             }
+            dHidden[j] *= dropoutMask[j];
         }
 
         for (int j = 0; j < hiddenSize; j++) {
@@ -124,10 +134,20 @@ public class MLP implements Serializable {
         }
     }
 
+    private void calculateDropoutMask() {
+        for (int i = 0; i < dropoutMask.length; ++i) {
+            if (rnd.nextFloat() < dropoutRate) {
+                dropoutMask[i] = 0.f;
+            } else {
+                dropoutMask[i] = 1.f / (1 - dropoutRate);
+            }
+            hidden[i] *= dropoutMask[i];
+        }
+    }
+
     private float trainOnExample(float[] input, float[] target, float lr) {
         // ---------- Forward -----------
         float[] hiddenRaw = new float[hiddenSize];
-        float[] hidden = new float[hiddenSize];
         for (int j = 0; j < hiddenSize; j++) {
             float sum = b1[j];
             for (int i = 0; i < inputSize; i++) {
@@ -138,7 +158,7 @@ public class MLP implements Serializable {
         }
 
         float maxLogit = findMaxLogit(hidden);
-        float[] output = calculateSoftmax(hiddenRaw, maxLogit);
+        float[] output = calculateSoftmax(outputRaw, maxLogit);
         float loss = calculateLoss(output, target);
 
         float[] dOutput = calculateErrors(output, target);
@@ -195,7 +215,7 @@ public class MLP implements Serializable {
     }
 
     private float relu(float x) {
-        return (x > 0) ? x : 0.01f * x;
+        return x > 0 ? x : 0;
     }
 }
 
